@@ -3,21 +3,21 @@ U404-Shell is a simple shell program written in C. <br>
 It provides a command-line interface to interact with the file system and perform various operations.
 
 ### Features
-File operations: select, delete, create <br>
-Directory operations: create <br>
-System operations: list files and directories, print the current working directory, clear the screen <br>
-Script execution: execute a sequence of commands from a script file <br>
-Conditional execution: execute commands based on conditions <br>
+* File operations: select, delete, create <br>
+* Directory operations: create <br>
+* System operations: list files and directories, print the current working directory, clear the screen <br>
+* Script execution: execute a sequence of commands from a script file <br>
+* Conditional execution: execute commands based on conditions <br>
 ### Commands
-`select-file <filename>`: Select a file for operations like delete. <br>
-`delete`: Delete the selected file. <br>
-`makefile <filename>`: Create a new file. <br>
-`makefolder <foldername>`: Create a new folder. <br>
-`ls`: List files and directories in the current directory. <br>
-`pwd`: Print the current working directory. <br>
-`clear`: Clear the screen. <br>
-`uprint <message>`: Print a Unicode string. <br>
-`help`: Show available commands. <br>
+* `select-file <filename>`: Select a file for operations like delete. <br>
+* `delete`: Delete the selected file. <br>
+* `makefile <filename>`: Create a new file. <br>
+* `makefolder <foldername>`: Create a new folder. <br>
+* `ls`: List files and directories in the current directory. <br>
+* `pwd`: Print the current working directory. <br>
+* `clear`: Clear the screen. <br>
+* `uprint <message>`: Print a Unicode string. <br>
+* `help`: Show available commands. <br>
 ### Scripting
 In the U404-Shell, you can execute a script with conditional statements using the execute_script function. This function reads a script file line by line and executes each command. It also supports conditional execution of commands using `if`, `else`, and `endif` statements.
 
@@ -34,12 +34,11 @@ else
 endif
 ```
 <br>
-2. In the shell, call the execute_script function with the name of your script file as the argument.
-
+2. In the shell, call the execute_script function with the name of your script file as the argument.<br>
 Example:
-```
-execute_script("script.txt");
-```
+
+`execute_script script.txt`
+
 This will execute the script, printing "File exists" if `test.txt` exists, and "File does not exist" otherwise.
 
 ### Building
