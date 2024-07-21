@@ -1,363 +1,775 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <math.h>
+#include <ctype.h>
 #include <stdbool.h>
+#include <math.h>
+#include <time.h>
 
 #ifdef _WIN32
     #include <windows.h>
-    #include <direct.h>
-    #define getcwd _getcwd
-    #define mkdir(dir, mode) _mkdir(dir)
-    #define MAX_PATH_LENGTH MAX_PATH
+    #define sleep(x) Sleep(x * 1000)
 #else
     #include <unistd.h>
-    #include <dirent.h>
-    #include <sys/stat.h>
-    #define MAX_PATH_LENGTH 1024
 #endif
 
-#define MAX_COMMAND_LENGTH 1024
-#define MAX_FILENAME_LENGTH 1024
-#define MAX_CONDITION_LENGTH 1024
-#define MAX_IF_DEPTH 10
+#define MAX_TOKEN_LENGTH 256
+#define MAX_TOKENS 1024
+#define MAX_VARIABLES 1000
+#define MAX_FUNCTIONS 100
+#define MAX_STACK_SIZE 1000
 
-char selected_file[MAX_FILENAME_LENGTH] = "";
+typedef enum {
+    TOKEN_KEYWORD,
+    TOKEN_IDENTIFIER,
+    TOKEN_NUMBER,
+    TOKEN_STRING,
+    TOKEN_OPERATOR,
+    TOKEN_PUNCTUATION,
+    TOKEN_EOF
+} TokenType;
+
+typedef struct {
+    TokenType type;
+    char value[MAX_TOKEN_LENGTH];
+} Token;
+
+typedef enum {
+    VAR_NIL,
+    VAR_NUMBER,
+    VAR_STRING,
+    VAR_BOOLEAN,
+    VAR_TABLE,
+    VAR_FUNCTION
+} VariableType;
+
+typedef struct TableEntry TableEntry;
+
+struct TableEntry {
+    char* key;
+    struct Variable* value;
+    TableEntry* next;
+};
+
+typedef struct Variable {
+    VariableType type;
+    union {
+        double number;
+        char* string;
+        bool boolean;
+        TableEntry* table;
+        int function_index;
+    } value;
+} Variable;
+
+typedef struct {
+    char name[MAX_TOKEN_LENGTH];
+    Variable value;
+} VariableEntry;
+
+typedef struct {
+    char name[MAX_TOKEN_LENGTH];
+    int start_index;
+    int end_index;
+} Function;
+
+Token tokens[MAX_TOKENS];
+int token_count = 0;
+int current_token = 0;
+
+VariableEntry variables[MAX_VARIABLES];
+int variable_count = 0;
+
+Function functions[MAX_FUNCTIONS];
+int function_count = 0;
+
+Variable stack[MAX_STACK_SIZE];
+int stack_top = -1;
 
 // Function prototypes
-void execute_command(const char* command);
-void execute_script(char* filename);
-void print_help();
+void tokenize(const char* input);
+void parse_and_execute();
+Variable execute_function(const char* name);
+void execute_statement();
+Variable evaluate_expression();
+Variable evaluate_term();
+Variable evaluate_factor();
+void error(const char* message);
+void push(Variable value);
+Variable pop();
+Variable* get_variable(const char* name);
+void set_variable(const char* name, Variable value);
+void print_variable(Variable var);
 
-// Function to execute 'ls' command
-void execute_ls() {
-    #ifdef _WIN32
-        // Windows-specific code
-        WIN32_FIND_DATA findData;
-        HANDLE hFind;
-        SYSTEMTIME stUTC, stLocal;
-        FILETIME ftCreate, ftAccess, ftWrite;
+// Built-in functions
+Variable func_print();
+Variable func_type();
+Variable func_tonumber();
+Variable func_tostring();
+Variable func_math_random();
+Variable func_os_time();
+Variable func_os_clock();
+Variable func_string_len();
+Variable func_string_sub();
+Variable func_table_insert();
+Variable func_table_remove();
 
-        hFind = FindFirstFile("*", &findData);
-        if (hFind == INVALID_HANDLE_VALUE) {
-            printf("FindFirstFile failed (%d)\n", GetLastError());
+void tokenize(const char* input) {
+    token_count = 0;
+    char* token_start = (char*)input;
+    char* p = (char*)input;
+
+    while (*p) {
+        if (isspace(*p)) {
+            p++;
+            token_start = p;
+        } else if (isalpha(*p) || *p == '_') {
+            while (isalnum(*p) || *p == '_') p++;
+            int length = p - token_start;
+            if (length > MAX_TOKEN_LENGTH - 1) length = MAX_TOKEN_LENGTH - 1;
+            strncpy(tokens[token_count].value, token_start, length);
+            tokens[token_count].value[length] = '\0';
+            
+            if (strcmp(tokens[token_count].value, "if") == 0 ||
+                strcmp(tokens[token_count].value, "then") == 0 ||
+                strcmp(tokens[token_count].value, "else") == 0 ||
+                strcmp(tokens[token_count].value, "elseif") == 0 ||
+                strcmp(tokens[token_count].value, "end") == 0 ||
+                strcmp(tokens[token_count].value, "while") == 0 ||
+                strcmp(tokens[token_count].value, "do") == 0 ||
+                strcmp(tokens[token_count].value, "for") == 0 ||
+                strcmp(tokens[token_count].value, "function") == 0 ||
+                strcmp(tokens[token_count].value, "local") == 0 ||
+                strcmp(tokens[token_count].value, "return") == 0 ||
+                strcmp(tokens[token_count].value, "break") == 0 ||
+                strcmp(tokens[token_count].value, "nil") == 0 ||
+                strcmp(tokens[token_count].value, "true") == 0 ||
+                strcmp(tokens[token_count].value, "false") == 0) {
+                tokens[token_count].type = TOKEN_KEYWORD;
+            } else {
+                tokens[token_count].type = TOKEN_IDENTIFIER;
+            }
+            token_count++;
+            token_start = p;
+        } else if (isdigit(*p) || (*p == '.' && isdigit(*(p+1)))) {
+            while (isdigit(*p) || *p == '.') p++;
+            int length = p - token_start;
+            if (length > MAX_TOKEN_LENGTH - 1) length = MAX_TOKEN_LENGTH - 1;
+            strncpy(tokens[token_count].value, token_start, length);
+            tokens[token_count].value[length] = '\0';
+            tokens[token_count].type = TOKEN_NUMBER;
+            token_count++;
+            token_start = p;
+        } else if (*p == '"' || *p == '\'') {
+            char quote = *p;
+            p++;
+            token_start = p;
+            while (*p && *p != quote) p++;
+            if (*p == quote) {
+                int length = p - token_start;
+                if (length > MAX_TOKEN_LENGTH - 1) length = MAX_TOKEN_LENGTH - 1;
+                strncpy(tokens[token_count].value, token_start, length);
+                tokens[token_count].value[length] = '\0';
+                tokens[token_count].type = TOKEN_STRING;
+                token_count++;
+                p++;
+            } else {
+                error("Unterminated string literal");
+            }
+            token_start = p;
+        } else if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '%' || *p == '^' ||
+                   *p == '=' || *p == '<' || *p == '>' || *p == '~') {
+            if ((*p == '=' && *(p+1) == '=') || (*p == '~' && *(p+1) == '=') ||
+                (*p == '<' && *(p+1) == '=') || (*p == '>' && *(p+1) == '=')) {
+                tokens[token_count].value[0] = *p;
+                tokens[token_count].value[1] = *(p+1);
+                tokens[token_count].value[2] = '\0';
+                p += 2;
+            } else {
+                tokens[token_count].value[0] = *p;
+                tokens[token_count].value[1] = '\0';
+                p++;
+            }
+            tokens[token_count].type = TOKEN_OPERATOR;
+            token_count++;
+            token_start = p;
+        } else if (*p == '(' || *p == ')' || *p == '{' || *p == '}' || *p == '[' || *p == ']' ||
+                   *p == ',' || *p == ';') {
+            tokens[token_count].value[0] = *p;
+            tokens[token_count].value[1] = '\0';
+            tokens[token_count].type = TOKEN_PUNCTUATION;
+            token_count++;
+            p++;
+            token_start = p;
+        } else {
+            error("Invalid character in input");
+        }
+    }
+
+    tokens[token_count].type = TOKEN_EOF;
+    strcpy(tokens[token_count].value, "EOF");
+    token_count++;
+}
+
+void parse_and_execute() {
+    current_token = 0;
+    while (tokens[current_token].type != TOKEN_EOF) {
+        execute_statement();
+    }
+}
+
+void execute_statement() {
+    if (tokens[current_token].type == TOKEN_KEYWORD) {
+        if (strcmp(tokens[current_token].value, "if") == 0) {
+            current_token++;
+            Variable condition = evaluate_expression();
+            if (tokens[current_token].type != TOKEN_KEYWORD || strcmp(tokens[current_token].value, "then") != 0) {
+                error("Expected 'then' after if condition");
+            }
+            current_token++;
+            if (condition.type == VAR_BOOLEAN && condition.value.boolean) {
+                while (tokens[current_token].type != TOKEN_KEYWORD || 
+                       (strcmp(tokens[current_token].value, "else") != 0 &&
+                        strcmp(tokens[current_token].value, "elseif") != 0 &&
+                        strcmp(tokens[current_token].value, "end") != 0)) {
+                    execute_statement();
+                }
+            } else {
+                int nesting = 1;
+                while (nesting > 0) {
+                    if (tokens[current_token].type == TOKEN_KEYWORD) {
+                        if (strcmp(tokens[current_token].value, "if") == 0) nesting++;
+                        else if (strcmp(tokens[current_token].value, "end") == 0) nesting--;
+                        else if (nesting == 1 && (strcmp(tokens[current_token].value, "else") == 0 || 
+                                                  strcmp(tokens[current_token].value, "elseif") == 0)) {
+                            break;
+                        }
+                    }
+                    current_token++;
+                }
+            }
+            if (tokens[current_token].type == TOKEN_KEYWORD && strcmp(tokens[current_token].value, "else") == 0) {
+                current_token++;
+                if (!condition.value.boolean) {
+                    while (tokens[current_token].type != TOKEN_KEYWORD || strcmp(tokens[current_token].value, "end") != 0) {
+                        execute_statement();
+                    }
+                }
+            }
+            while (tokens[current_token].type != TOKEN_KEYWORD || strcmp(tokens[current_token].value, "end") != 0) {
+                current_token++;
+            }
+            current_token++;
+        } else if (strcmp(tokens[current_token].value, "while") == 0) {
+            int loop_start = current_token;
+            current_token++;
+            Variable condition = evaluate_expression();
+            if (tokens[current_token].type != TOKEN_KEYWORD || strcmp(tokens[current_token].value, "do") != 0) {
+                error("Expected 'do' after while condition");
+            }
+            current_token++;
+            while (condition.type == VAR_BOOLEAN && condition.value.boolean) {
+                while (tokens[current_token].type != TOKEN_KEYWORD || strcmp(tokens[current_token].value, "end") != 0) {
+                    execute_statement();
+                }
+                current_token = loop_start + 1;
+                condition = evaluate_expression();
+                current_token++;  // Skip 'do'
+            }
+            int nesting = 1;
+            while (nesting > 0) {
+                if (tokens[current_token].type == TOKEN_KEYWORD) {
+                    if (strcmp(tokens[current_token].value, "while") == 0) nesting++;
+                    else if (strcmp(tokens[current_token].value, "end") == 0) nesting--;
+                }
+                current_token++;
+            }
+        } else if (strcmp(tokens[current_token].value, "function") == 0) {
+            current_token++;
+            if (tokens[current_token].type != TOKEN_IDENTIFIER) {
+                error("Expected function name");
+            }
+            char function_name[MAX_TOKEN_LENGTH];
+            strcpy(function_name, tokens[current_token].value);
+            current_token++;
+            if (tokens[current_token].type != TOKEN_PUNCTUATION || strcmp(tokens[current_token].value, "(") != 0) {
+                error("Expected '(' after function name");
+            }
+            current_token++;
+            if (tokens[current_token].type != TOKEN_PUNCTUATION || strcmp(tokens[current_token].value, ")") != 0) {
+                error("Expected ')' after function parameters");
+            }
+            current_token++;
+            int function_start = current_token;
+            int nesting = 1;
+            while (nesting > 0) {
+                if (tokens[current_token].type == TOKEN_KEYWORD) {
+                    if (strcmp(tokens[current_token].value, "function") == 0) nesting++;
+                    else if (strcmp(tokens[current_token].value, "end") == 0) nesting--;
+                }
+                current_token++;
+            }
+            int function_end = current_token - 1;
+            
+            if (function_count < MAX_FUNCTIONS) {
+                strcpy(functions[function_count].name, function_name);
+                functions[function_count].start_index = function_start;
+                functions[function_count].end_index = function_end;
+                function_count++;
+            } else {
+                error("Too many functions defined");
+            }
+        } else if (strcmp(tokens[current_token].value, "local") == 0) {
+            current_token++;
+            if (tokens[current_token].type != TOKEN_IDENTIFIER) {
+                error("Expected variable name after 'local'");
+            }
+            char var_name[MAX_TOKEN_LENGTH];
+            strcpy(var_name, tokens[current_token].value);
+            current_token++;
+            if (tokens[current_token].type != TOKEN_OPERATOR || strcmp(tokens[current_token].value, "=") != 0) {
+                error("Expected '=' after variable name in local declaration");
+            }
+            current_token++;
+            Variable value = evaluate_expression();
+            set_variable(var_name, value);
+        }
+    } else if (tokens[current_token].type == TOKEN_IDENTIFIER) {
+        char var_name[MAX_TOKEN_LENGTH];
+        strcpy(var_name, tokens[current_token].value);
+        current_token++;
+        if (tokens[current_token].type == TOKEN_OPERATOR && strcmp(tokens[current_token].value, "=") == 0) {
+            current_token++;
+            Variable value = evaluate_expression();
+            set_variable(var_name, value);
+        } else {
+            current_token--;
+            Variable result = evaluate_expression();
+            // Discard the result if it's not used
+        }
+    } else {
+        error("Unexpected token at start of statement");
+    }
+}
+
+Variable evaluate_expression() {
+    Variable left = evaluate_term();
+    while (tokens[current_token].type == TOKEN_OPERATOR &&
+           (strcmp(tokens[current_token].value, "+") == 0 || strcmp(tokens[current_token].value, "-") == 0)) {
+        char op = tokens[current_token].value[0];
+        current_token++;
+        Variable right = evaluate_term();
+        if (left.type == VAR_NUMBER && right.type == VAR_NUMBER) {
+            if (op == '+') {
+                left.value.number += right.value.number;
+            }else {
+                left.value.number -= right.value.number;
+            }
+        } else if (left.type == VAR_STRING && right.type == VAR_STRING && op == '+') {
+            char* new_string = malloc(strlen(left.value.string) + strlen(right.value.string) + 1);
+            strcpy(new_string, left.value.string);
+            strcat(new_string, right.value.string);
+            free(left.value.string);
+            left.value.string = new_string;
+        } else {
+            error("Invalid operands for '+' or '-'");
+        }
+    }
+    return left;
+}
+
+Variable evaluate_term() {
+    Variable left = evaluate_factor();
+    while (tokens[current_token].type == TOKEN_OPERATOR &&
+           (strcmp(tokens[current_token].value, "*") == 0 || strcmp(tokens[current_token].value, "/") == 0 ||
+            strcmp(tokens[current_token].value, "%") == 0)) {
+        char op = tokens[current_token].value[0];
+        current_token++;
+        Variable right = evaluate_factor();
+        if (left.type == VAR_NUMBER && right.type == VAR_NUMBER) {
+            if (op == '*') {
+                left.value.number *= right.value.number;
+            } else if (op == '/') {
+                if (right.value.number == 0) {
+                    error("Division by zero");
+                }
+                left.value.number /= right.value.number;
+            } else {
+                left.value.number = fmod(left.value.number, right.value.number);
+            }
+        } else {
+            error("Invalid operands for '*', '/' or '%'");
+        }
+    }
+    return left;
+}
+
+Variable evaluate_factor() {
+    if (tokens[current_token].type == TOKEN_NUMBER) {
+        Variable var;
+        var.type = VAR_NUMBER;
+        var.value.number = atof(tokens[current_token].value);
+        current_token++;
+        return var;
+    } else if (tokens[current_token].type == TOKEN_STRING) {
+        Variable var;
+        var.type = VAR_STRING;
+        var.value.string = strdup(tokens[current_token].value);
+        current_token++;
+        return var;
+    } else if (tokens[current_token].type == TOKEN_KEYWORD) {
+        if (strcmp(tokens[current_token].value, "true") == 0) {
+            Variable var;
+            var.type = VAR_BOOLEAN;
+            var.value.boolean = true;
+            current_token++;
+            return var;
+        } else if (strcmp(tokens[current_token].value, "false") == 0) {
+            Variable var;
+            var.type = VAR_BOOLEAN;
+            var.value.boolean = false;
+            current_token++;
+            return var;
+        } else if (strcmp(tokens[current_token].value, "nil") == 0) {
+            Variable var;
+            var.type = VAR_NIL;
+            current_token++;
+            return var;
+        }
+    } else if (tokens[current_token].type == TOKEN_IDENTIFIER) {
+        char var_name[MAX_TOKEN_LENGTH];
+        strcpy(var_name, tokens[current_token].value);
+        current_token++;
+        if (tokens[current_token].type == TOKEN_PUNCTUATION && strcmp(tokens[current_token].value, "(") == 0) {
+            current_token++;
+            // Function call
+            if (strcmp(var_name, "print") == 0) {
+                return func_print();
+            } else if (strcmp(var_name, "type") == 0) {
+                return func_type();
+            } else if (strcmp(var_name, "tonumber") == 0) {
+                return func_tonumber();
+            } else if (strcmp(var_name, "tostring") == 0) {
+                return func_tostring();
+            } else if (strcmp(var_name, "math.random") == 0) {
+                return func_math_random();
+            } else if (strcmp(var_name, "os.time") == 0) {
+                return func_os_time();
+            } else if (strcmp(var_name, "os.clock") == 0) {
+                return func_os_clock();
+            } else if (strcmp(var_name, "string.len") == 0) {
+                return func_string_len();
+            } else if (strcmp(var_name, "string.sub") == 0) {
+                return func_string_sub();
+            } else if (strcmp(var_name, "table.insert") == 0) {
+                return func_table_insert();
+            } else if (strcmp(var_name, "table.remove") == 0) {
+                return func_table_remove();
+            } else {
+                return execute_function(var_name);
+            }
+        } else {
+            Variable* var = get_variable(var_name);
+            if (var == NULL) {
+                error("Undefined variable");
+            }
+            return *var;
+        }
+    } else if (tokens[current_token].type == TOKEN_PUNCTUATION && strcmp(tokens[current_token].value, "(") == 0) {
+        current_token++;
+        Variable var = evaluate_expression();
+        if (tokens[current_token].type != TOKEN_PUNCTUATION || strcmp(tokens[current_token].value, ")") != 0) {
+            error("Expected ')'");
+        }
+        current_token++;
+        return var;
+    }
+    error("Unexpected token in factor");
+    Variable dummy;
+    dummy.type = VAR_NIL;
+    return dummy;
+}
+
+void error(const char* message) {
+    fprintf(stderr, "Error: %s\n", message);
+    exit(1);
+}
+
+void push(Variable value) {
+    if (stack_top < MAX_STACK_SIZE - 1) {
+        stack[++stack_top] = value;
+    } else {
+        error("Stack overflow");
+    }
+}
+
+Variable pop() {
+    if (stack_top >= 0) {
+        return stack[stack_top--];
+    } else {
+        error("Stack underflow");
+        Variable dummy;
+        dummy.type = VAR_NIL;
+        return dummy;
+    }
+}
+
+Variable* get_variable(const char* name) {
+    for (int i = 0; i < variable_count; i++) {
+        if (strcmp(variables[i].name, name) == 0) {
+            return &variables[i].value;
+        }
+    }
+    return NULL;
+}
+
+void set_variable(const char* name, Variable value) {
+    for (int i = 0; i < variable_count; i++) {
+        if (strcmp(variables[i].name, name) == 0) {
+            variables[i].value = value;
             return;
         }
-
-        do {
-            // Convert file size to human-readable format
-            LARGE_INTEGER size;
-            size.HighPart = findData.nFileSizeHigh;
-            size.LowPart = findData.nFileSizeLow;
-
-            // Convert the last-write time to local time.
-            FileTimeToLocalFileTime(&findData.ftLastWriteTime, &ftCreate);
-            FileTimeToSystemTime(&ftCreate, &stUTC);
-            SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal);
-
-            printf("%-20s %-10lld %-20s\n", findData.cFileName, size.QuadPart, asctime(gmtime(&findData.ftLastWriteTime)));
-        } while (FindNextFile(hFind, &findData) != 0);
-
-        FindClose(hFind);
-    #else
-        // Unix-specific code
-        DIR *dir;
-        struct dirent *entry;
-        struct stat fileStat;
-        char timeBuffer[80];
-
-        dir = opendir(".");
-        if (dir == NULL) {
-            perror("opendir");
-            return;
-        }
-
-        printf("%-20s %-10s %-20s\n", "Name", "Size", "Last Modified");
-        printf("----------------------------------------------\n");
-
-        while ((entry = readdir(dir)) != NULL) {
-            if (stat(entry->d_name, &fileStat) < 0) {
-                perror("stat");
-                continue;
-            }
-
-            // Convert file size to human-readable format
-            double size = fileStat.st_size;
-            char unit[3];
-            if (size < 1024) {
-                strcpy(unit, "B");
-            } else if (size < pow(1024, 2)) {
-                size /= 1024;
-                strcpy(unit, "KB");
-            } else if (size < pow(1024, 3)) {
-                size /= pow(1024, 2);
-                strcpy(unit, "MB");
-            } else if (size < pow(1024, 4)) {
-                size /= pow(1024, 3);
-                strcpy(unit, "GB");
-            } else {
-                size /= pow(1024, 4);
-                strcpy(unit, "TB");
-            }
-
-            strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", localtime(&fileStat.st_mtime));
-
-            if (strcmp(entry->d_name, selected_file) == 0) {
-                printf("\033[0;33m%-20s %.2f %s %-20s\033[0m\n", entry->d_name, size, unit, timeBuffer);
-            } else {
-                printf("%-20s %.2f %s %-20s\n", entry->d_name, size, unit, timeBuffer);
-            }
-        }
-
-        closedir(dir);
-    #endif
-}
-
-// Function to execute 'pwd' command
-void execute_pwd() {
-    char cwd[MAX_PATH_LENGTH];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("%s\n", cwd);
+    }
+    if (variable_count < MAX_VARIABLES) {
+        strcpy(variables[variable_count].name, name);
+        variables[variable_count].value = value;
+        variable_count++;
     } else {
-        perror("getcwd");
+        error("Too many variables");
     }
 }
 
-// Function to execute 'clear' command
-void execute_clear() {
-    #ifdef _WIN32
-        system("cls");
-    #else
-        system("clear");
-    #endif
-}
-
-// Function to execute 'select-file' command
-void execute_select_file(const char *filename) {
-    strcpy(selected_file, filename);
-}
-
-// Function to execute 'delete' command
-void execute_delete() {
-    if (selected_file[0] == '\0') {
-        printf("No file selected.\n");
-        return;
+void print_variable(Variable var) {
+    switch (var.type) {
+        case VAR_NIL:
+            printf("nil");
+            break;
+        case VAR_NUMBER:
+            printf("%g", var.value.number);
+            break;
+        case VAR_STRING:
+            printf("%s", var.value.string);
+            break;
+        case VAR_BOOLEAN:
+            printf(var.value.boolean ? "true" : "false");
+            break;
+        case VAR_TABLE:
+            printf("table: %p", (void*)var.value.table);
+            break;
+        case VAR_FUNCTION:
+            printf("function: %d", var.value.function_index);
+            break;
     }
-
-    #ifdef _WIN32
-        if (DeleteFile(selected_file) != 0) {
-            printf("Deleted successfully.\n");
-            selected_file[0] = '\0';
-        } else {
-            printf("Error deleting file: %d\n", GetLastError());
-        }
-    #else
-        if (remove(selected_file) == 0) {
-            printf("Deleted successfully.\n");
-            selected_file[0] = '\0';
-        } else {
-            perror("delete");
-        }
-    #endif
 }
 
-// Function to execute 'makefile' command
-void execute_makefolder(const char *foldername) {
-    #ifdef _WIN32
-        if (CreateDirectory(foldername, NULL) != 0) {
-            printf("Folder created successfully.\n");
-        } else {
-            printf("Error creating folder: %d\n", GetLastError());
-        }
-    #else
-        if (mkdir(foldername, 0777) == 0) {
-            printf("Folder created successfully.\n");
-        } else {
-            perror("mkdir");
-        }
-    #endif
+// Built-in functions implementation
+
+Variable func_print() {
+    Variable arg = pop();
+    print_variable(arg);
+    printf("\n");
+    Variable result;
+    result.type = VAR_NIL;
+    return result;
 }
 
-// Function to execute 'makefile' command
-void execute_makefile(char* filename){
-    FILE *file = fopen(filename, "w");
-    if (file == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
+Variable func_type() {
+    Variable arg = pop();
+    Variable result;
+    result.type = VAR_STRING;
+    switch (arg.type) {
+        case VAR_NIL: result.value.string = strdup("nil"); break;
+        case VAR_NUMBER: result.value.string = strdup("number"); break;
+        case VAR_STRING: result.value.string = strdup("string"); break;
+        case VAR_BOOLEAN: result.value.string = strdup("boolean"); break;
+        case VAR_TABLE: result.value.string = strdup("table"); break;
+        case VAR_FUNCTION: result.value.string = strdup("function"); break;
     }
-
-    /* Write to file */
-    fprintf(file, "This is a new file created by the U404-Shell.\n");
-
-    /* Close file */
-    fclose(file);
+    return result;
 }
 
-// Function to execute 'uprint' command
-void execute_uprint(const char* message) {
-    #ifdef _WIN32
-        wprintf(L"%s\n", message);
-    #else
-        printf("%s\n", message);
-    #endif
-}
-
-// Function to check if a file exists
-bool file_exists(const char* filename) {
-    FILE* file = fopen(filename, "r");
-    if (file != NULL) {
-        fclose(file);
-        return true;
-    }
-    return false;
-}
-
-// Function to check if a is greater than b
-bool is_greater(int a, int b) {
-    return a > b;
-}
-
-// Function to check if a number is even
-bool is_even(int a) {
-    return a % 2 == 0;
-}
-
-// Function to check a condition
-bool check_condition(const char* condition) {
-    char condCopy[1024];
-    strncpy(condCopy, condition, 1023);
-    condCopy[1023] = '\0';  // Ensure null-termination
-
-    char* token = strtok(condCopy, " ");
-    if (token != NULL) {
-        if (strcmp(token, "file_exists") == 0) {
-            token = strtok(NULL, " ");
-            return file_exists(token);
-        } else if (strcmp(token, "is_greater") == 0) {
-            token = strtok(NULL, " ");
-            int a = atoi(token);
-            token = strtok(NULL, " ");
-            int b = atoi(token);
-            return is_greater(a, b);
-        } else if (strcmp(token, "is_even") == 0) {
-            token = strtok(NULL, " ");
-            int a = atoi(token);
-            return is_even(a);
-        }
-        // Add more conditions here
-    }
-    return false; // Default to false if condition is unrecognized
-}
-
-// Function to trim newline character from a string
-void trim_newline(char* str) {
-    if (str == NULL) return;
-    str[strcspn(str, "\n")] = 0;
-}
-
-// Function to execute a command
-void execute_command(const char* command) {
-    if (strcmp(command, "ls") == 0) {
-        execute_ls();
-    } else if (strncmp(command, "select-file ", 12) == 0) {
-        execute_select_file(command + 12);
-    } else if (strcmp(command, "delete") == 0) {
-        execute_delete();
-    } else if (strcmp(command, "pwd") == 0) {
-        execute_pwd();
-    } else if (strcmp(command, "clear") == 0) {
-        execute_clear();
-    } else if (strncmp(command, "makefolder ", 11) == 0) {
-        execute_makefolder(command + 11);
-    } else if (strncmp(command, "makefile ", 9) == 0) {
-        execute_makefile(command + 9);
-    } else if (strncmp(command, "uprint ", 7) == 0) {
-        execute_uprint(command + 7);
-    } else if (strcmp(command, "help") == 0) {
-        print_help();
-    } else if (strncmp(command, "execute_script ", 15) == 0) {
-        execute_script(command + 15);
+Variable func_tonumber() {
+    Variable arg = pop();
+    Variable result;
+    result.type = VAR_NUMBER;
+    if (arg.type == VAR_STRING) {
+        result.value.number = atof(arg.value.string);
+    } else if (arg.type == VAR_NUMBER) {
+        result = arg;
     } else {
-        printf("Unknown command: %s\n", command);
+        result.type = VAR_NIL;
     }
+    return result;
 }
 
-// Function to execute a script
-void execute_script(char* filename) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Failed to open script file");
-        return;
+Variable func_tostring() {
+    Variable arg = pop();
+    Variable result;
+    result.type = VAR_STRING;
+    char buffer[64];
+    switch (arg.type) {
+        case VAR_NIL:
+            result.value.string = strdup("nil");
+            break;
+        case VAR_NUMBER:
+            snprintf(buffer, sizeof(buffer), "%g", arg.value.number);
+            result.value.string = strdup(buffer);
+            break;
+        case VAR_STRING:
+            result = arg;
+            break;
+        case VAR_BOOLEAN:
+            result.value.string = strdup(arg.value.boolean ? "true" : "false");
+            break;
+        case VAR_TABLE:
+            snprintf(buffer, sizeof(buffer), "table: %p", (void*)arg.value.table);
+            result.value.string = strdup(buffer);
+            break;
+        case VAR_FUNCTION:
+            snprintf(buffer, sizeof(buffer), "function: %d", arg.value.function_index);
+            result.value.string = strdup(buffer);
+            break;
     }
+    return result;
+}
 
-    char command[1024];
-    int if_depth = 0; // Track nesting level of if statements
-    bool condition_stack[10] = {false}; // Stack to track conditions for nested if statements
-    bool execute_command_flag = true; // Flag to determine whether to execute a command
+Variable func_math_random() {
+    Variable result;
+    result.type = VAR_NUMBER;
+    result.value.number = (double)rand() / RAND_MAX;
+    return result;
+}
 
-    while (fgets(command, sizeof(command), file)) {
-        trim_newline(command);
+Variable func_os_time() {
+    Variable result;
+    result.type = VAR_NUMBER;
+    result.value.number = (double)time(NULL);
+    return result;
+}
 
-        if (strncmp(command, "if ", 3) == 0) {
-            if (if_depth < 10) {
-                execute_command_flag = (if_depth == 0) || (condition_stack[if_depth - 1] && execute_command_flag);
-                condition_stack[if_depth++] = check_condition(command + 3) && execute_command_flag;
-            } else {
-                fprintf(stderr, "Error: Nested if statements too deep\n");
-                break;
-            }
-        } else if (strcmp(command, "else") == 0) {
-            if (if_depth > 0) {
-                condition_stack[if_depth - 1] = !condition_stack[if_depth - 1] && execute_command_flag;
-            } else {
-                fprintf(stderr, "Error: else without matching if\n");
-            }
-        } else if (strcmp(command, "endif") == 0) {
-            if (if_depth > 0) {
-                if_depth--;
-                execute_command_flag = (if_depth == 0) || condition_stack[if_depth - 1];
-            } else {
-                fprintf(stderr, "Error: endif without matching if\n");
-            }
-        } else if (if_depth == 0 || condition_stack[if_depth - 1]) {
-            execute_command(command);
+Variable func_os_clock() {
+    Variable result;
+    result.type = VAR_NUMBER;
+    result.value.number = (double)clock() / CLOCKS_PER_SEC;
+    return result;
+}
+
+Variable func_string_len() {
+    Variable arg = pop();
+    Variable result;
+    result.type = VAR_NUMBER;
+    if (arg.type == VAR_STRING) {
+        result.value.number = strlen(arg.value.string);
+    } else {
+        result.type = VAR_NIL;
+    }
+    return result;
+}
+
+Variable func_string_sub() {
+    Variable end = pop();
+    Variable start = pop();
+    Variable str = pop();
+    Variable result;
+    result.type = VAR_STRING;
+    if (str.type == VAR_STRING && start.type == VAR_NUMBER && end.type == VAR_NUMBER) {
+        int s = (int)start.value.number - 1;  // Lua uses 1-based indexing
+        int e = (int)end.value.number;
+        if (s < 0) s = 0;
+        if (e > strlen(str.value.string)) e = strlen(str.value.string);
+        if (s < e) {
+            result.value.string = malloc(e - s + 1);
+            strncpy(result.value.string, str.value.string + s, e - s);
+            result.value.string[e - s] = '\0';
+        } else {
+            result.value.string = strdup("");
         }
+    } else {
+        result.type = VAR_NIL;
     }
-
-    fclose(file);
+    return result;
 }
 
-void print_help() {
-    printf("Available commands:\n");
-    printf("File operations:\n");
-    printf("  select-file <filename> - Select a file\n");
-    printf("  delete - Delete the selected file\n");
-    printf("  makefile <filename> - Create a new file\n");
-    printf("Folder operations:\n");
-    printf("  makefolder - Create a new folder\n");
-    printf("System operations:\n");
-    printf("  ls - List files and directories\n");
-    printf("  pwd - Print the current working directory\n");
-    printf("  clear - Clear the screen\n");
-    printf("General:\n");
-    printf("  help - Show available commands\n");
+Variable func_table_insert() {
+    // This is a simplified version that always inserts at the end
+    Variable value = pop();
+    Variable table = pop();
+    if (table.type != VAR_TABLE) {
+        error("First argument to table.insert must be a table");
+    }
+    TableEntry* new_entry = malloc(sizeof(TableEntry));
+    new_entry->key = NULL;  // For array-like behavior
+    new_entry->value = malloc(sizeof(Variable));
+    *new_entry->value = value;
+    new_entry->next = NULL;
+    
+    if (table.value.table == NULL) {
+        table.value.table = new_entry;
+    } else {
+        TableEntry* last = table.value.table;
+        while (last->next != NULL) {
+            last = last->next;
+        }
+        last->next = new_entry;
+    }
+    
+    Variable result;
+    result.type = VAR_NIL;
+    return result;
 }
 
-// Main function
+Variable func_table_remove() {
+    // This is a simplified version that always removes from the end
+    Variable table = pop();
+    if (table.type != VAR_TABLE) {
+        error("Argument to table.remove must be a table");
+    }
+    
+    Variable result;
+    result.type = VAR_NIL;
+    
+    if (table.value.table == NULL) {
+        return result;
+    }
+    
+    if (table.value.table->next == NULL) {
+        result = *table.value.table->value;
+        free(table.value.table->value);
+        free(table.value.table);
+        table.value.table = NULL;
+    } else {
+        TableEntry* second_last = table.value.table;
+        while (second_last->next->next != NULL) {
+            second_last = second_last->next;
+        }
+        result = *second_last->next->value;
+        free(second_last->next->value);
+        free(second_last->next);
+        second_last->next = NULL;
+    }
+    
+    return result;
+}
+
 int main() {
-    char command[MAX_COMMAND_LENGTH];
-
+    char input[1000];
+    
+    printf("Lua-like Shell\n");
+    printf("Type 'exit' to quit\n");
+    
     while (1) {
-        printf("U404-Shell> ");
-        fgets(command, MAX_COMMAND_LENGTH, stdin);
-
-        // Remove newline character
-        command[strcspn(command, "\n")] = 0;
-
-        execute_command(command);
+        printf("> ");
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            break;
+        }
+        
+        if (strcmp(input, "exit\n") == 0) {
+            break;
+        }
+        
+        tokenize(input);
+        parse_and_execute();
     }
-
+    
     return 0;
 }
