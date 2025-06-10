@@ -107,6 +107,7 @@ Variable func_type();
 Variable func_tonumber();
 Variable func_tostring();
 Variable func_math_random();
+Variable func_math_sqrt();
 Variable func_os_time();
 Variable func_os_clock();
 Variable func_string_len();
@@ -453,6 +454,8 @@ Variable evaluate_factor() {
                 return func_tostring();
             } else if (strcmp(var_name, "math.random") == 0) {
                 return func_math_random();
+            } else if (strcmp(var_name, "math.sqrt") == 0) {
+                return func_math_sqrt();
             } else if (strcmp(var_name, "os.time") == 0) {
                 return func_os_time();
             } else if (strcmp(var_name, "os.clock") == 0) {
@@ -538,6 +541,28 @@ void set_variable(const char* name, Variable value) {
         error("Too many variables");
     }
 }
+Variable execute_function(const char* name) {
+    for (int i = 0; i < function_count; i++) {
+        if (strcmp(functions[i].name, name) == 0) {
+            int saved_token = current_token;
+            int start = functions[i].start_index;
+            int end = functions[i].end_index;
+            current_token = start;
+            while (current_token <= end) {
+                execute_statement();
+            }
+            current_token = saved_token;
+            Variable result;
+            result.type = VAR_NIL;
+            return result;
+        }
+    }
+    error("Undefined function");
+    Variable dummy;
+    dummy.type = VAR_NIL;
+    return dummy;
+}
+
 
 void print_variable(Variable var) {
     switch (var.type) {
@@ -639,6 +664,18 @@ Variable func_math_random() {
     result.value.number = (double)rand() / RAND_MAX;
     return result;
 }
+Variable func_math_sqrt() {
+    Variable arg = pop();
+    Variable result;
+    result.type = VAR_NUMBER;
+    if (arg.type == VAR_NUMBER && arg.value.number >= 0) {
+        result.value.number = sqrt(arg.value.number);
+    } else {
+        result.type = VAR_NIL;
+    }
+    return result;
+}
+
 
 Variable func_os_time() {
     Variable result;
