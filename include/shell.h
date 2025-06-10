@@ -81,6 +81,7 @@ void tokenize(const char* input);
 void parse_and_execute();
 void execute_statement();
 Variable evaluate_expression();
+Variable evaluate_addition();
 Variable evaluate_term();
 Variable evaluate_factor();
 Variable execute_function(const char* name);
