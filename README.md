@@ -43,11 +43,29 @@ Example:
 This will execute the script, printing "File exists" if `test.txt` exists, and "File does not exist" otherwise.
 
 ### Building
-To build the program, use a C compiler like gcc <br>
-```gcc main.c -o u404shell -lm```
+You can build the project using the provided `Makefile` or the `build.sh` script.
+
+Using make:
+```sh
+make
+```
+
+Using the portable build script:
+```sh
+./build.sh
+```
+The script detects macOS and uses `clang` if available.
 ### Running
-To run the program: `./u404shell`
-To execute a script: `./u404shell script.txt`
+If you built with `make`, run the executable:
+```sh
+./u404shell
+```
+
+If you used `build.sh`, the executable is placed in the `build` directory:
+```sh
+./build/u404shell
+```
+To execute a script: `./build/u404shell script.txt`
 
 ### Contributing
 Contributions are welcome. Please submit a pull request or create an issue to discuss the changes.
