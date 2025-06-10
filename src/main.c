@@ -267,7 +267,7 @@ void execute_statement() {
     }
 }
 
-Variable evaluate_expression() {
+Variable evaluate_addition() {
     Variable left = evaluate_term();
     while (tokens[current_token].type == TOKEN_OPERATOR &&
            (strcmp(tokens[current_token].value, "+") == 0 || strcmp(tokens[current_token].value, "-") == 0)) {
@@ -277,7 +277,7 @@ Variable evaluate_expression() {
         if (left.type == VAR_NUMBER && right.type == VAR_NUMBER) {
             if (op == '+') {
                 left.value.number += right.value.number;
-            }else {
+            } else {
                 left.value.number -= right.value.number;
             }
         } else if (left.type == VAR_STRING && right.type == VAR_STRING && op == '+') {
@@ -288,6 +288,36 @@ Variable evaluate_expression() {
             left.value.string = new_string;
         } else {
             error("Invalid operands for '+' or '-'");
+        }
+    }
+    return left;
+}
+
+Variable evaluate_expression() {
+    Variable left = evaluate_addition();
+    while (tokens[current_token].type == TOKEN_OPERATOR &&
+           (strcmp(tokens[current_token].value, "==") == 0 ||
+            strcmp(tokens[current_token].value, "~=") == 0 ||
+            strcmp(tokens[current_token].value, "<") == 0  ||
+            strcmp(tokens[current_token].value, ">") == 0  ||
+            strcmp(tokens[current_token].value, "<=") == 0 ||
+            strcmp(tokens[current_token].value, ">=") == 0)) {
+        char op[3];
+        strcpy(op, tokens[current_token].value);
+        current_token++;
+        Variable right = evaluate_addition();
+        if (left.type == VAR_NUMBER && right.type == VAR_NUMBER) {
+            bool result;
+            if (strcmp(op, "==") == 0) result = (left.value.number == right.value.number);
+            else if (strcmp(op, "~=") == 0) result = (left.value.number != right.value.number);
+            else if (strcmp(op, "<") == 0) result = (left.value.number < right.value.number);
+            else if (strcmp(op, ">") == 0) result = (left.value.number > right.value.number);
+            else if (strcmp(op, "<=") == 0) result = (left.value.number <= right.value.number);
+            else result = (left.value.number >= right.value.number);
+            left.type = VAR_BOOLEAN;
+            left.value.boolean = result;
+        } else {
+            error("Invalid operands for comparison operator");
         }
     }
     return left;
