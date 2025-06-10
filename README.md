@@ -8,6 +8,7 @@ It provides a command-line interface to interact with the file system and perfor
 * System operations: list files and directories, print the current working directory, clear the screen <br>
 * Script execution: execute a sequence of commands from a script file <br>
 * Conditional execution: execute commands based on conditions <br>
+* Math functions: random number generation and square root calculation via `math.sqrt` <br>
 ### Commands
 * `select-file <filename>`: Select a file for operations like delete. <br>
 * `delete`: Delete the selected file. <br>
@@ -43,7 +44,7 @@ This will execute the script, printing "File exists" if `test.txt` exists, and "
 
 ### Building
 To build the program, use a C compiler like gcc <br>
-```gcc main.c -o u404shell```
+```gcc main.c -o u404shell -lm```
 ### Running
 To run the program: `./u404shell`
 To execute a script: `./u404shell script.txt`
