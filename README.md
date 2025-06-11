@@ -1,15 +1,56 @@
 # U404 Shell
 
-U404 Shell is a lightweight command-line shell written in Rust. It provides basic file system commands and simple scripting capabilities.
+U404 Shell is a lightweight command-line shell written in Rust. It exposes handy
+file management commands as well as a tiny scripting language.
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Command Reference](#command-reference)
+- [Scripting](#scripting)
+- [Building](#building)
+- [Running](#running)
+- [License](#license)
 
 ## Features
 
-- File operations: select, delete, create
+- File operations: select, delete, and create files
 - Directory creation
-- System utilities: list files, display the current directory, clear the screen
+- System utilities: list files, show the current directory and clear the screen
 - Script execution from a file
 - Conditional execution with `if`, `else` and `endif`
-- Math helpers: random number generation via `random` and square root calculation via `math.sqrt`
+- Math helpers: random number generation via `random` and square root
+  calculation via `math.sqrt`
+
+## Quick Start
+
+```sh
+cargo run --release
+```
+
+Running without arguments starts an interactive REPL. Pass a script file to
+execute it directly.
+
+### Sample Session
+
+```text
+$ cargo run --release
+> pwd
+/home/user/U404
+> makefile notes.txt
+> ls
+notes.txt
+```
+
+## Installation
+
+Install the shell locally with Cargo:
+
+```sh
+cargo install --path u404shell
+```
 
 ## Command Reference
 
@@ -33,6 +74,14 @@ U404 Shell is a lightweight command-line shell written in Rust. It provides basi
 
 Scripts are plain text files containing one command per line. Conditional execution is supported using `if`, `else` and `endif` statements.
 
+### Condition Reference
+
+| Condition | Arguments | Description |
+|-----------|-----------|-------------|
+| `file_exists <file>` | Path to a file | True if the file exists |
+| `is_greater <a> <b>` | Two numbers | True if `a` is greater than `b` |
+| `is_even <number>` | Integer | True if the number is even |
+
 Example `script.txt`:
 
 ```text
@@ -46,7 +95,7 @@ endif
 Run the script with:
 
 ```sh
-execute_script script.txt
+cargo run --release -- script.txt
 ```
 
 ## Building
