@@ -1,6 +1,6 @@
 CC ?= gcc
 CFLAGS ?= -Wall -Wextra -std=c99 -Iinclude
-LDFLAGS ?= -lm
+LDFLAGS ?= -lm -lreadline
 
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)

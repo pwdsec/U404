@@ -45,6 +45,9 @@ This will execute the script, printing "File exists" if `test.txt` exists, and "
 ### Building
 You can build the project using the provided `Makefile` or the `build.sh` script.
 
+Both methods require the `readline` development libraries to be
+available on your system.
+
 Using make:
 ```sh
 make
@@ -66,6 +69,10 @@ If you used `build.sh`, the executable is placed in the `build` directory:
 ./build/u404shell
 ```
 To execute a script: `./build/u404shell script.txt`
+
+Running the executable with no arguments starts an interactive
+Readline-enabled shell.  The interface provides command history and
+editing much like the Python CLI.  Type `exit` to quit the REPL.
 
 ### Bytecode Compilation
 You can compile a script to bytecode and run that bytecode later.

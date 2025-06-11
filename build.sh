@@ -2,7 +2,7 @@
 set -e
 CC=${CC:-gcc}
 CFLAGS="-Wall -Wextra -std=c99"
-LDFLAGS="-lm"
+LDFLAGS="-lm -lreadline"
 case "$(uname)" in
   Darwin*)
     CC=${CC:-clang}
