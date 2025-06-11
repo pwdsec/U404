@@ -36,6 +36,74 @@ int function_count = 0;
 Variable stack[MAX_STACK_SIZE];
 int stack_top = -1;
 
+static char* read_file(const char* path) {
+    FILE* f = fopen(path, "rb");
+    if (!f) {
+        perror("fopen");
+        return NULL;
+    }
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    rewind(f);
+    char* data = malloc(len + 1);
+    if (!data) {
+        fclose(f);
+        return NULL;
+    }
+    if (fread(data, 1, len, f) != (size_t)len) {
+        fclose(f);
+        free(data);
+        return NULL;
+    }
+    data[len] = '\0';
+    fclose(f);
+    return data;
+}
+
+void compile_script(const char* script_file, const char* bytecode_file) {
+    char* content = read_file(script_file);
+    if (!content) {
+        fprintf(stderr, "Failed to read %s\n", script_file);
+        return;
+    }
+    tokenize(content);
+    free(content);
+    FILE* out = fopen(bytecode_file, "wb");
+    if (!out) {
+        perror("fopen");
+        return;
+    }
+    fwrite(&token_count, sizeof(token_count), 1, out);
+    fwrite(tokens, sizeof(Token), token_count, out);
+    fclose(out);
+    printf("Compiled %s to %s\n", script_file, bytecode_file);
+}
+
+void run_bytecode(const char* bytecode_file) {
+    FILE* in = fopen(bytecode_file, "rb");
+    if (!in) {
+        perror("fopen");
+        return;
+    }
+    if (fread(&token_count, sizeof(token_count), 1, in) != 1) {
+        fprintf(stderr, "Invalid bytecode file\n");
+        fclose(in);
+        return;
+    }
+    if (token_count > MAX_TOKENS) {
+        fprintf(stderr, "Bytecode too large\n");
+        fclose(in);
+        return;
+    }
+    if (fread(tokens, sizeof(Token), token_count, in) != (size_t)token_count) {
+        fprintf(stderr, "Invalid bytecode data\n");
+        fclose(in);
+        return;
+    }
+    fclose(in);
+    current_token = 0;
+    parse_and_execute();
+}
 
 void tokenize(const char* input) {
     token_count = 0;
@@ -759,25 +827,45 @@ Variable func_table_remove() {
     return result;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc == 4 && strcmp(argv[1], "-c") == 0) {
+        compile_script(argv[2], argv[3]);
+        return 0;
+    }
+    if (argc == 3 && strcmp(argv[1], "-r") == 0) {
+        run_bytecode(argv[2]);
+        return 0;
+    }
+    if (argc == 2) {
+        char* script = read_file(argv[1]);
+        if (!script) {
+            fprintf(stderr, "Failed to read %s\n", argv[1]);
+            return 1;
+        }
+        tokenize(script);
+        free(script);
+        parse_and_execute();
+        return 0;
+    }
+
     char input[1000];
-    
+
     printf("Lua-like Shell\n");
     printf("Type 'exit' to quit\n");
-    
+
     while (1) {
         printf("> ");
         if (fgets(input, sizeof(input), stdin) == NULL) {
             break;
         }
-        
+
         if (strcmp(input, "exit\n") == 0) {
             break;
         }
-        
+
         tokenize(input);
         parse_and_execute();
     }
-    
+
     return 0;
 }

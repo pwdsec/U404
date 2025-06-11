@@ -105,4 +105,7 @@ Variable func_string_sub();
 Variable func_table_insert();
 Variable func_table_remove();
 
+void compile_script(const char* script_file, const char* bytecode_file);
+void run_bytecode(const char* bytecode_file);
+
 #endif /* SHELL_H */
