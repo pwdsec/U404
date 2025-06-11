@@ -82,7 +82,7 @@ fn help() {
     println!("  exit");
 }
 
-fn evaluate_condition(parts: &[&str], state: &ShellState) -> bool {
+fn evaluate_condition(parts: &[&str]) -> bool {
     if parts.is_empty() { return false; }
     match parts[0] {
         "file_exists" => parts.get(1).map(|p| Path::new(p).exists()).unwrap_or(false),
@@ -137,7 +137,7 @@ fn run_script(path: &Path, state: &mut ShellState) -> io::Result<()> {
         if trimmed.is_empty() { continue; }
         if trimmed.starts_with("if ") {
             let cond_parts: Vec<&str> = trimmed[3..].split_whitespace().collect();
-            let cond = evaluate_condition(&cond_parts, state);
+            let cond = evaluate_condition(&cond_parts);
             stack.push(exec);
             exec = exec && cond;
         } else if trimmed == "else" {
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_is_even() {
-        assert!(evaluate_condition(&["is_even", "4"], &ShellState::new()));
-        assert!(!evaluate_condition(&["is_even", "5"], &ShellState::new()));
+        assert!(evaluate_condition(&["is_even", "4"]));
+        assert!(!evaluate_condition(&["is_even", "5"]));
     }
 }
