@@ -1,63 +1,68 @@
-### U404-Shell
-U404-Shell is a simple shell program written in Rust. <br>
-It provides a command-line interface to interact with the file system and perform various operations.
+# U404 Shell
 
-### Features
-* File operations: select, delete, create <br>
-* Directory operations: create <br>
-* System operations: list files and directories, print the current working directory, clear the screen <br>
-* Script execution: execute a sequence of commands from a script file <br>
-* Conditional execution: execute commands based on conditions <br>
-* Math functions: random number generation (`random`) and square root calculation via `math.sqrt` <br>
-### Commands
-* `select-file <filename>`: Select a file for operations like delete. <br>
-* `delete`: Delete the selected file. <br>
-* `makefile <filename>`: Create a new file. <br>
-* `makefolder <foldername>`: Create a new folder. <br>
-* `ls`: List files and directories in the current directory. <br>
-* `pwd`: Print the current working directory. <br>
-* `clear`: Clear the screen. <br>
-* `uprint <message>`: Print a Unicode string. <br>
-* `random`: Print a random number. <br>
-* `math.sqrt <number>`: Calculate the square root of a number. <br>
-* `help`: Show available commands. <br>
-* `exit`: Exit the shell. <br>
-### Scripting
-In the U404-Shell, you can execute a script with conditional statements using the execute_script function. This function reads a script file line by line and executes each command. It also supports conditional execution of commands using `if`, `else`, and `endif` statements.
+U404 Shell is a lightweight command-line shell written in Rust. It provides basic file system commands and simple scripting capabilities.
 
-#### Here's a step-by-step guide:
+## Features
 
-1. Create a script file with your commands. Each command should be on a new line. For conditional execution, you can use `if`, `else`, and `endif` statements. The if statement should be followed by a condition. Currently, the shell supports three conditions: `file_exists`, `is_greater`, and `is_even`. <br>
+- File operations: select, delete, create
+- Directory creation
+- System utilities: list files, display the current directory, clear the screen
+- Script execution from a file
+- Conditional execution with `if`, `else` and `endif`
+- Math helpers: random number generation via `random` and square root calculation via `math.sqrt`
 
-Example script (script.txt):
-```
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `select-file <file>` | Select a file for operations like delete |
+| `delete` | Delete the selected file |
+| `makefile <file>` | Create a new file |
+| `makefolder <folder>` | Create a new folder |
+| `ls` | List files and directories in the current directory |
+| `pwd` | Print the current working directory |
+| `clear` | Clear the screen |
+| `uprint <message>` | Print a Unicode string |
+| `random` | Print a random number |
+| `math.sqrt <number>` | Calculate the square root of a number |
+| `execute_script <file>` | Execute commands from a script file |
+| `help` | Show available commands |
+| `exit` | Exit the shell |
+
+## Scripting
+
+Scripts are plain text files containing one command per line. Conditional execution is supported using `if`, `else` and `endif` statements.
+
+Example `script.txt`:
+
+```text
 if file_exists test.txt
     uprint File exists
 else
     uprint File does not exist
 endif
 ```
-<br>
-2. In the shell, call the execute_script function with the name of your script file as the argument.<br>
-Example:
 
-`execute_script script.txt`
+Run the script with:
 
-This will execute the script, printing "File exists" if `test.txt` exists, and "File does not exist" otherwise.
+```sh
+execute_script script.txt
+```
 
-### Building
-Build with Cargo:
+## Building
+
 ```sh
 cargo build --release
 ```
 
-### Running
-Run the executable using Cargo:
+## Running
+
 ```sh
 cargo run --release -- [script]
 ```
+
 Running without arguments starts an interactive REPL.
 
+## License
 
-### License
 U404-Shell is open-source software released under the MIT license.
