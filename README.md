@@ -1,63 +1,117 @@
-### U404-Shell
-U404-Shell is a simple shell program written in Rust. <br>
-It provides a command-line interface to interact with the file system and perform various operations.
+# U404 Shell
 
-### Features
-* File operations: select, delete, create <br>
-* Directory operations: create <br>
-* System operations: list files and directories, print the current working directory, clear the screen <br>
-* Script execution: execute a sequence of commands from a script file <br>
-* Conditional execution: execute commands based on conditions <br>
-* Math functions: random number generation (`random`) and square root calculation via `math.sqrt` <br>
-### Commands
-* `select-file <filename>`: Select a file for operations like delete. <br>
-* `delete`: Delete the selected file. <br>
-* `makefile <filename>`: Create a new file. <br>
-* `makefolder <foldername>`: Create a new folder. <br>
-* `ls`: List files and directories in the current directory. <br>
-* `pwd`: Print the current working directory. <br>
-* `clear`: Clear the screen. <br>
-* `uprint <message>`: Print a Unicode string. <br>
-* `random`: Print a random number. <br>
-* `math.sqrt <number>`: Calculate the square root of a number. <br>
-* `help`: Show available commands. <br>
-* `exit`: Exit the shell. <br>
-### Scripting
-In the U404-Shell, you can execute a script with conditional statements using the execute_script function. This function reads a script file line by line and executes each command. It also supports conditional execution of commands using `if`, `else`, and `endif` statements.
+U404 Shell is a lightweight command-line shell written in Rust. It exposes handy
+file management commands as well as a tiny scripting language.
 
-#### Here's a step-by-step guide:
+## Table of Contents
 
-1. Create a script file with your commands. Each command should be on a new line. For conditional execution, you can use `if`, `else`, and `endif` statements. The if statement should be followed by a condition. Currently, the shell supports three conditions: `file_exists`, `is_greater`, and `is_even`. <br>
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Command Reference](#command-reference)
+- [Scripting](#scripting)
+- [Building](#building)
+- [Running](#running)
+- [License](#license)
 
-Example script (script.txt):
+## Features
+
+- File operations: select, delete, and create files
+- Directory creation
+- System utilities: list files, show the current directory and clear the screen
+- Script execution from a file
+- Conditional execution with `if`, `else` and `endif`
+- Math helpers: random number generation via `random` and square root
+  calculation via `math.sqrt`
+
+## Quick Start
+
+```sh
+cargo run --release
 ```
+
+Running without arguments starts an interactive REPL. Pass a script file to
+execute it directly.
+
+### Sample Session
+
+```text
+$ cargo run --release
+> pwd
+/home/user/U404
+> makefile notes.txt
+> ls
+notes.txt
+```
+
+## Installation
+
+Install the shell locally with Cargo:
+
+```sh
+cargo install --path u404shell
+```
+
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `select-file <file>` | Select a file for operations like delete |
+| `delete` | Delete the selected file |
+| `makefile <file>` | Create a new file |
+| `makefolder <folder>` | Create a new folder |
+| `ls` | List files and directories in the current directory |
+| `pwd` | Print the current working directory |
+| `clear` | Clear the screen |
+| `uprint <message>` | Print a Unicode string |
+| `random` | Print a random number |
+| `math.sqrt <number>` | Calculate the square root of a number |
+| `execute_script <file>` | Execute commands from a script file |
+| `help` | Show available commands |
+| `exit` | Exit the shell |
+
+## Scripting
+
+Scripts are plain text files containing one command per line. Conditional execution is supported using `if`, `else` and `endif` statements.
+
+### Condition Reference
+
+| Condition | Arguments | Description |
+|-----------|-----------|-------------|
+| `file_exists <file>` | Path to a file | True if the file exists |
+| `is_greater <a> <b>` | Two numbers | True if `a` is greater than `b` |
+| `is_even <number>` | Integer | True if the number is even |
+
+Example `script.txt`:
+
+```text
 if file_exists test.txt
     uprint File exists
 else
     uprint File does not exist
 endif
 ```
-<br>
-2. In the shell, call the execute_script function with the name of your script file as the argument.<br>
-Example:
 
-`execute_script script.txt`
+Run the script with:
 
-This will execute the script, printing "File exists" if `test.txt` exists, and "File does not exist" otherwise.
+```sh
+cargo run --release -- script.txt
+```
 
-### Building
-Build with Cargo:
+## Building
+
 ```sh
 cargo build --release
 ```
 
-### Running
-Run the executable using Cargo:
+## Running
+
 ```sh
 cargo run --release -- [script]
 ```
+
 Running without arguments starts an interactive REPL.
 
+## License
 
-### License
 U404-Shell is open-source software released under the MIT license.
