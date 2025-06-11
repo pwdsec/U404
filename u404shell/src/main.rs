@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::env;
+use rand::Rng;
 
 struct ShellState {
     selected_file: Option<PathBuf>,
@@ -67,6 +68,19 @@ fn uprint(args: &[&str]) {
     println!("{}", args.join(" "));
 }
 
+fn random_number() {
+    let mut rng = rand::thread_rng();
+    let num: u32 = rng.gen_range(0..=100);
+    println!("{}", num);
+}
+
+fn math_sqrt(arg: &str) {
+    match arg.parse::<f64>() {
+        Ok(n) => println!("{}", n.sqrt()),
+        Err(_) => println!("Invalid number"),
+    }
+}
+
 fn help() {
     println!("Available commands:");
     println!("  select-file <file>");
@@ -77,6 +91,8 @@ fn help() {
     println!("  pwd");
     println!("  clear");
     println!("  uprint <message>");
+    println!("  random");
+    println!("  math.sqrt <number>");
     println!("  execute_script <file>");
     println!("  help");
     println!("  exit");
@@ -118,6 +134,10 @@ fn run_command(line: &str, state: &mut ShellState) -> io::Result<bool> {
         "pwd" => { print_pwd(); }
         "clear" => { clear_screen(); }
         "uprint" => { uprint(&parts[1..]); }
+        "random" => { random_number(); }
+        "math.sqrt" => {
+            if let Some(arg) = parts.get(1) { math_sqrt(arg); } else { println!("Usage: math.sqrt <number>"); }
+        }
         "execute_script" => {
             if let Some(f) = parts.get(1) { run_script(Path::new(f), state)?; } else { println!("Usage: execute_script <file>"); }
         }

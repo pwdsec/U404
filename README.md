@@ -8,7 +8,7 @@ It provides a command-line interface to interact with the file system and perfor
 * System operations: list files and directories, print the current working directory, clear the screen <br>
 * Script execution: execute a sequence of commands from a script file <br>
 * Conditional execution: execute commands based on conditions <br>
-* Math functions: random number generation and square root calculation via `math.sqrt` <br>
+* Math functions: random number generation (`random`) and square root calculation via `math.sqrt` <br>
 ### Commands
 * `select-file <filename>`: Select a file for operations like delete. <br>
 * `delete`: Delete the selected file. <br>
@@ -18,7 +18,10 @@ It provides a command-line interface to interact with the file system and perfor
 * `pwd`: Print the current working directory. <br>
 * `clear`: Clear the screen. <br>
 * `uprint <message>`: Print a Unicode string. <br>
+* `random`: Print a random number. <br>
+* `math.sqrt <number>`: Calculate the square root of a number. <br>
 * `help`: Show available commands. <br>
+* `exit`: Exit the shell. <br>
 ### Scripting
 In the U404-Shell, you can execute a script with conditional statements using the execute_script function. This function reads a script file line by line and executes each command. It also supports conditional execution of commands using `if`, `else`, and `endif` statements.
 
