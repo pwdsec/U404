@@ -67,6 +67,19 @@ If you used `build.sh`, the executable is placed in the `build` directory:
 ```
 To execute a script: `./build/u404shell script.txt`
 
+### Bytecode Compilation
+You can compile a script to bytecode and run that bytecode later.
+
+Compile a script:
+```sh
+./u404shell -c script.txt script.bc
+```
+
+Run compiled bytecode:
+```sh
+./u404shell -r script.bc
+```
+
 ### Contributing
 Contributions are welcome. Please submit a pull request or create an issue to discuss the changes.
 
