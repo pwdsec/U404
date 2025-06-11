@@ -61,7 +61,7 @@ typedef struct {
     char name[MAX_TOKEN_LENGTH];
     int start_index;
     int end_index;
-} Function;
+} ShellFunction;
 
 /* Global variables declared in main.c */
 extern Token tokens[MAX_TOKENS];
@@ -71,7 +71,7 @@ extern int current_token;
 extern VariableEntry variables[MAX_VARIABLES];
 extern int variable_count;
 
-extern Function functions[MAX_FUNCTIONS];
+extern ShellFunction functions[MAX_FUNCTIONS];
 extern int function_count;
 
 extern Variable stack[MAX_STACK_SIZE];

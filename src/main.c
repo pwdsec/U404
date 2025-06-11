@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <math.h>
 #include <time.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -30,7 +32,7 @@ static char* str_dup(const char* s) {
 VariableEntry variables[MAX_VARIABLES];
 int variable_count = 0;
 
-Function functions[MAX_FUNCTIONS];
+ShellFunction functions[MAX_FUNCTIONS];
 int function_count = 0;
 
 Variable stack[MAX_STACK_SIZE];
@@ -848,23 +850,27 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    char input[1000];
-
     printf("Lua-like Shell\n");
     printf("Type 'exit' to quit\n");
 
     while (1) {
-        printf("> ");
-        if (fgets(input, sizeof(input), stdin) == NULL) {
+        char *line = readline(">>> ");
+        if (!line) {
             break;
         }
 
-        if (strcmp(input, "exit\n") == 0) {
+        if (strcmp(line, "exit") == 0) {
+            free(line);
             break;
         }
 
-        tokenize(input);
-        parse_and_execute();
+        if (*line) {
+            add_history(line);
+            tokenize(line);
+            parse_and_execute();
+        }
+
+        free(line);
     }
 
     return 0;
