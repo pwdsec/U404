@@ -1,5 +1,5 @@
 ### U404-Shell
-U404-Shell is a simple shell program written in C. <br>
+U404-Shell is a simple shell program written in Rust. <br>
 It provides a command-line interface to interact with the file system and perform various operations.
 
 ### Features
@@ -43,52 +43,18 @@ Example:
 This will execute the script, printing "File exists" if `test.txt` exists, and "File does not exist" otherwise.
 
 ### Building
-You can build the project using the provided `Makefile` or the `build.sh` script.
-
-Both methods require the `readline` development libraries to be
-available on your system.
-
-Using make:
+Build with Cargo:
 ```sh
-make
+cargo build --release
 ```
 
-Using the portable build script:
-```sh
-./build.sh
-```
-The script detects macOS and uses `clang` if available.
 ### Running
-If you built with `make`, run the executable:
+Run the executable using Cargo:
 ```sh
-./u404shell
+cargo run --release -- [script]
 ```
+Running without arguments starts an interactive REPL.
 
-If you used `build.sh`, the executable is placed in the `build` directory:
-```sh
-./build/u404shell
-```
-To execute a script: `./build/u404shell script.txt`
-
-Running the executable with no arguments starts an interactive
-Readline-enabled shell.  The interface provides command history and
-editing much like the Python CLI.  Type `exit` to quit the REPL.
-
-### Bytecode Compilation
-You can compile a script to bytecode and run that bytecode later.
-
-Compile a script:
-```sh
-./u404shell -c script.txt script.bc
-```
-
-Run compiled bytecode:
-```sh
-./u404shell -r script.bc
-```
-
-### Contributing
-Contributions are welcome. Please submit a pull request or create an issue to discuss the changes.
 
 ### License
 U404-Shell is open-source software released under the MIT license.
