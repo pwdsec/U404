@@ -19,6 +19,14 @@ Token tokens[MAX_TOKENS];
 int token_count = 0;
 int current_token = 0;
 
+static char* str_dup(const char* s) {
+    char* dup = malloc(strlen(s) + 1);
+    if (dup) {
+        strcpy(dup, s);
+    }
+    return dup;
+}
+
 VariableEntry variables[MAX_VARIABLES];
 int variable_count = 0;
 
@@ -155,7 +163,7 @@ void execute_statement() {
                     if (tokens[current_token].type == TOKEN_KEYWORD) {
                         if (strcmp(tokens[current_token].value, "if") == 0) nesting++;
                         else if (strcmp(tokens[current_token].value, "end") == 0) nesting--;
-                        else if (nesting == 1 && (strcmp(tokens[current_token].value, "else") == 0 || 
+                        else if (nesting == 1 && (strcmp(tokens[current_token].value, "else") == 0 ||
                                                   strcmp(tokens[current_token].value, "elseif") == 0)) {
                             break;
                         }
@@ -359,7 +367,7 @@ Variable evaluate_factor() {
     } else if (tokens[current_token].type == TOKEN_STRING) {
         Variable var;
         var.type = VAR_STRING;
-        var.value.string = strdup(tokens[current_token].value);
+        var.value.string = str_dup(tokens[current_token].value);
         current_token++;
         return var;
     } else if (tokens[current_token].type == TOKEN_KEYWORD) {
@@ -387,34 +395,53 @@ Variable evaluate_factor() {
         current_token++;
         if (tokens[current_token].type == TOKEN_PUNCTUATION && strcmp(tokens[current_token].value, "(") == 0) {
             current_token++;
-            // Function call
-            if (strcmp(var_name, "print") == 0) {
-                return func_print();
-            } else if (strcmp(var_name, "type") == 0) {
-                return func_type();
-            } else if (strcmp(var_name, "tonumber") == 0) {
-                return func_tonumber();
-            } else if (strcmp(var_name, "tostring") == 0) {
-                return func_tostring();
-            } else if (strcmp(var_name, "math.random") == 0) {
-                return func_math_random();
-            } else if (strcmp(var_name, "math.sqrt") == 0) {
-                return func_math_sqrt();
-            } else if (strcmp(var_name, "os.time") == 0) {
-                return func_os_time();
-            } else if (strcmp(var_name, "os.clock") == 0) {
-                return func_os_clock();
-            } else if (strcmp(var_name, "string.len") == 0) {
-                return func_string_len();
-            } else if (strcmp(var_name, "string.sub") == 0) {
-                return func_string_sub();
-            } else if (strcmp(var_name, "table.insert") == 0) {
-                return func_table_insert();
-            } else if (strcmp(var_name, "table.remove") == 0) {
-                return func_table_remove();
-            } else {
-                return execute_function(var_name);
+            int arg_count = 0;
+            if (!(tokens[current_token].type == TOKEN_PUNCTUATION && strcmp(tokens[current_token].value, ")") == 0)) {
+                while (1) {
+                    Variable arg = evaluate_expression();
+                    push(arg);
+                    arg_count++;
+                    if (tokens[current_token].type == TOKEN_PUNCTUATION && strcmp(tokens[current_token].value, ",") == 0) {
+                        current_token++;
+                    } else {
+                        break;
+                    }
+                }
             }
+            if (tokens[current_token].type != TOKEN_PUNCTUATION || strcmp(tokens[current_token].value, ")") != 0) {
+                error("Expected ')'");
+            }
+            current_token++;
+            Variable result;
+            if (strcmp(var_name, "print") == 0) {
+                result = func_print();
+            } else if (strcmp(var_name, "type") == 0) {
+                result = func_type();
+            } else if (strcmp(var_name, "tonumber") == 0) {
+                result = func_tonumber();
+            } else if (strcmp(var_name, "tostring") == 0) {
+                result = func_tostring();
+            } else if (strcmp(var_name, "math.random") == 0) {
+                result = func_math_random();
+            } else if (strcmp(var_name, "math.sqrt") == 0) {
+                result = func_math_sqrt();
+            } else if (strcmp(var_name, "os.time") == 0) {
+                result = func_os_time();
+            } else if (strcmp(var_name, "os.clock") == 0) {
+                result = func_os_clock();
+            } else if (strcmp(var_name, "string.len") == 0) {
+                result = func_string_len();
+            } else if (strcmp(var_name, "string.sub") == 0) {
+                result = func_string_sub();
+            } else if (strcmp(var_name, "table.insert") == 0) {
+                result = func_table_insert();
+            } else if (strcmp(var_name, "table.remove") == 0) {
+                result = func_table_remove();
+            } else {
+                while (arg_count--) pop();
+                result = execute_function(var_name);
+            }
+            return result;
         } else {
             Variable* var = get_variable(var_name);
             if (var == NULL) {
@@ -547,12 +574,12 @@ Variable func_type() {
     Variable result;
     result.type = VAR_STRING;
     switch (arg.type) {
-        case VAR_NIL: result.value.string = strdup("nil"); break;
-        case VAR_NUMBER: result.value.string = strdup("number"); break;
-        case VAR_STRING: result.value.string = strdup("string"); break;
-        case VAR_BOOLEAN: result.value.string = strdup("boolean"); break;
-        case VAR_TABLE: result.value.string = strdup("table"); break;
-        case VAR_FUNCTION: result.value.string = strdup("function"); break;
+        case VAR_NIL: result.value.string = str_dup("nil"); break;
+        case VAR_NUMBER: result.value.string = str_dup("number"); break;
+        case VAR_STRING: result.value.string = str_dup("string"); break;
+        case VAR_BOOLEAN: result.value.string = str_dup("boolean"); break;
+        case VAR_TABLE: result.value.string = str_dup("table"); break;
+        case VAR_FUNCTION: result.value.string = str_dup("function"); break;
     }
     return result;
 }
@@ -578,25 +605,25 @@ Variable func_tostring() {
     char buffer[64];
     switch (arg.type) {
         case VAR_NIL:
-            result.value.string = strdup("nil");
+            result.value.string = str_dup("nil");
             break;
         case VAR_NUMBER:
             snprintf(buffer, sizeof(buffer), "%g", arg.value.number);
-            result.value.string = strdup(buffer);
+            result.value.string = str_dup(buffer);
             break;
         case VAR_STRING:
             result = arg;
             break;
         case VAR_BOOLEAN:
-            result.value.string = strdup(arg.value.boolean ? "true" : "false");
+            result.value.string = str_dup(arg.value.boolean ? "true" : "false");
             break;
         case VAR_TABLE:
             snprintf(buffer, sizeof(buffer), "table: %p", (void*)arg.value.table);
-            result.value.string = strdup(buffer);
+            result.value.string = str_dup(buffer);
             break;
         case VAR_FUNCTION:
             snprintf(buffer, sizeof(buffer), "function: %d", arg.value.function_index);
-            result.value.string = strdup(buffer);
+            result.value.string = str_dup(buffer);
             break;
     }
     return result;
@@ -663,7 +690,7 @@ Variable func_string_sub() {
             strncpy(result.value.string, str.value.string + s, e - s);
             result.value.string[e - s] = '\0';
         } else {
-            result.value.string = strdup("");
+            result.value.string = str_dup("");
         }
     } else {
         result.type = VAR_NIL;
