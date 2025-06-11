@@ -115,7 +115,7 @@ void tokenize(const char* input) {
             p++;
             token_start = p;
         } else if (isalpha(*p) || *p == '_') {
-            while (isalnum(*p) || *p == '_') p++;
+            while (isalnum(*p) || *p == '_' || *p == '.') p++;
             int length = p - token_start;
             if (length > MAX_TOKEN_LENGTH - 1) length = MAX_TOKEN_LENGTH - 1;
             strncpy(tokens[token_count].value, token_start, length);
